@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Box, VStack, Image, Text, Button, HStack, Slider, SliderTrack, SliderFilledTrack, SliderThumb, useColorMode, IconButton, Container, useToast,  Modal,
   ModalOverlay,
   ModalContent,
+  ModalCloseButton,
   ModalHeader,
   ModalBody,
   ModalFooter,
@@ -39,6 +40,7 @@ function App() {
   const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();
   const [logoClicks, setLogoClicks] = useState(0);  
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
 
   
 
@@ -54,6 +56,31 @@ useEffect(() => {
 
   const isMobile = () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  const triggerModalConfetti = () => {
+    // Create multiple confetti bursts from different positions around the modal
+    const positions = [
+      { x: 0.3, y: 0.3 },
+      { x: 0.7, y: 0.3 },
+      { x: 0.5, y: 0.5 },
+      { x: 0.3, y: 0.7 },
+      { x: 0.7, y: 0.7 }
+    ];
+  
+    positions.forEach((pos, index) => {
+      setTimeout(() => {
+        confetti({
+          particleCount: 100,
+          spread: 90,
+          origin: pos,
+          colors: ['#1a365d', '#2a4365', '#2c5282', '#2b6cb0', '#3182ce'],
+          startVelocity: 45,
+          gravity: 0.8,
+          scalar: 1.2,
+        });
+      }, index * 150); // Stagger the confetti bursts
+    });
   };
 
   const triggerConfetti = () => {
@@ -81,31 +108,10 @@ useEffect(() => {
     const newClickCount = logoClicks + 1;
     setLogoClicks(newClickCount);
     
-    // Trigger confetti on every click
     triggerConfetti();
     
     if (newClickCount === 5) {
-      const videoId = "xvFZjo5PgG0";
-      const url = `https://www.youtube.com/watch?v=${videoId}`;
-      
-      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        // iOS: Try YouTube app first
-        window.location.href = `youtube://www.youtube.com/watch?v=${videoId}`;
-        // Fallback to YouTube website after a short delay
-        setTimeout(() => {
-          window.location.href = url;
-        }, 2000);
-      } else if (/Android/i.test(navigator.userAgent)) {
-        // Android: Try YouTube app first
-        window.location.href = `intent://www.youtube.com/watch?v=${videoId}#Intent;package=com.google.android.youtube;scheme=https;end`;
-        // Fallback to YouTube website after a short delay
-        setTimeout(() => {
-          window.location.href = url;
-        }, 2000);
-      } else {
-        // Desktop: Open in new tab
-        window.open(url, '_blank');
-      }
+      setIsVideoOpen(true);
     } else if (newClickCount === 1) {
       toast({
         title: "You have found a secret : O",
@@ -124,11 +130,11 @@ useEffect(() => {
       });
     }
   
-    // Reset counter after 3 seconds of inactivity
     setTimeout(() => {
       setLogoClicks(0);
     }, 3000);
   };
+  
 
   const adjustViewportForDesktopMode = () => {
     const viewport = document.querySelector('meta[name="viewport"]');
@@ -661,7 +667,51 @@ useEffect(() => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-      
+      <Modal 
+  isOpen={isVideoOpen} 
+  onClose={() => setIsVideoOpen(false)}
+  isCentered
+  size="xl"
+  onEnter={() => triggerModalConfetti()} // Add this
+>
+  <ModalOverlay />
+  <ModalContent 
+    bg="transparent" 
+    boxShadow="none"
+    onAnimationEnd={() => triggerModalConfetti()} // Add this as backup
+  >
+    <ModalCloseButton 
+      color="white" 
+      zIndex="2"
+    />
+    <VStack spacing={4}>
+      <video
+        autoPlay
+        controls
+        style={{ 
+          borderRadius: '10px',
+          width: '100%',
+          height: 'auto',
+        }}
+        onLoadStart={(e) => {
+          e.target.volume = 0.25;
+          triggerModalConfetti(); // Add this to ensure confetti triggers
+        }}
+      >
+        <source src={getAssetPath("secret/secret.mp4")} type="video/mp4" />
+      </video>
+      <Text
+        fontSize="6xl"
+        fontWeight="bold"
+        color="white"
+        textShadow="2px 2px 4px rgba(0,0,0,0.5)"
+        letterSpacing="wider"
+      >
+        GG, you found the secret! - Jed ❤️
+      </Text>
+    </VStack>
+  </ModalContent>
+</Modal>
     </Box>
   );
 }
