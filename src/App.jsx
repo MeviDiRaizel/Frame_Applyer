@@ -84,7 +84,29 @@ useEffect(() => {
     // Trigger confetti on every click
     triggerConfetti();
     
-    if (newClickCount === 1) {
+    if (newClickCount === 5) {
+      const videoId = "xvFZjo5PgG0";
+      const url = `https://www.youtube.com/watch?v=${videoId}`;
+      
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        // iOS: Try YouTube app first
+        window.location.href = `youtube://www.youtube.com/watch?v=${videoId}`;
+        // Fallback to YouTube website after a short delay
+        setTimeout(() => {
+          window.location.href = url;
+        }, 2000);
+      } else if (/Android/i.test(navigator.userAgent)) {
+        // Android: Try YouTube app first
+        window.location.href = `intent://www.youtube.com/watch?v=${videoId}#Intent;package=com.google.android.youtube;scheme=https;end`;
+        // Fallback to YouTube website after a short delay
+        setTimeout(() => {
+          window.location.href = url;
+        }, 2000);
+      } else {
+        // Desktop: Open in new tab
+        window.open(url, '_blank');
+      }
+    } else if (newClickCount === 1) {
       toast({
         title: "You have found a secret : O",
         status: "info",
@@ -92,7 +114,6 @@ useEffect(() => {
         isClosable: true,
         position: "top",
       });
-
     } else if (newClickCount < 5) {
       toast({
         title: `${5 - newClickCount} clicks away`,
@@ -101,25 +122,6 @@ useEffect(() => {
         isClosable: true,
         position: "top",
       });
-    } else if (newClickCount === 5) {
-      const url = "https://www.youtube.com/watch?v=xvFZjo5PgG0";
-      if (isMobile()) {
-        // Mobile: Try to open YouTube app
-        if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-          // iOS: Use youtube:// scheme
-          window.location.href = `youtube://${url.split('watch?v=')[1]}`;
-        } else {
-          // Android: Use vnd.youtube scheme
-          window.location.href = `vnd.youtube:${url.split('watch?v=')[1]}`;
-        }
-        // Fallback to browser if YouTube app isn't installed (after a short delay)
-        setTimeout(() => {
-          window.location.href = url;
-        }, 500);
-      } else {
-        // Desktop: Open in new tab
-        window.open(url, '_blank');
-      }
     }
   
     // Reset counter after 3 seconds of inactivity
