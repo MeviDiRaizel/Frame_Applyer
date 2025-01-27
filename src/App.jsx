@@ -10,13 +10,17 @@ import { Box, VStack, Image, Text, Button, HStack, Slider, SliderTrack, SliderFi
 import { SunIcon, MoonIcon } from '@chakra-ui/icons';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
+const getAssetPath = (path) => {
+  const base = import.meta.env.BASE_URL;
+  return `${base}${path}`;
+};
 
 function App() {
   
   const DEFAULT_FRAME = {
-    enabled: true, // Set to false to disable default frame
-    url: "frames/MiniOL.png",
-    allowRemoval: false, // Set to false to prevent frame removal
+    enabled: true,
+    url: getAssetPath("frames/MiniOL.png"), // Updated path
+    allowRemoval: false,
   };
 
   const { isOpen, onOpen } = useDisclosure({ defaultIsOpen: true });
@@ -356,11 +360,11 @@ useEffect(() => {
       <VStack spacing={4} minH="calc(100vh - 8rem)" justify="center" pb={8}>
         <HStack w="full" justify="space-between">
   <HStack spacing={3}>
-        <Image
-        src="img/CCISLOGO.png"
-        alt="CCIS Logo"
-        w="64px"
-        h="64px"
+          <Image
+          src={getAssetPath("img/CCISLOGO.png")} 
+          alt="CCIS Logo"
+          w="64px"
+          h="64px"
         cursor="pointer"
         onClick={handleLogoClick}
         transition="transform 0.2s"
