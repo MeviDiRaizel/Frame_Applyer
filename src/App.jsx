@@ -11,8 +11,12 @@ import { SunIcon, MoonIcon } from '@chakra-ui/icons';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
 const getAssetPath = (path) => {
-  const base = import.meta.env.BASE_URL || '/Frame_Applyer/';
-  return `${base}${path}`;
+  // For GitHub Pages deployment
+  if (import.meta.env.PROD) {
+    return `/Frame_Applyer/${path}`;
+  }
+  // For local development
+  return `/${path}`;
 };
 
 function App() {
@@ -345,7 +349,7 @@ useEffect(() => {
 
   return (
     <Box minH="100vh" bg={colorMode === 'dark' ? 'gray.800' : 'gray.50'} transition="background 0.2s">
-    <Container 
+     <Container 
   maxW="container.md" 
   py={4} 
   px={{ base: 2, md: 8 }}
@@ -360,9 +364,9 @@ useEffect(() => {
       <VStack spacing={4} minH="calc(100vh - 8rem)" justify="center" pb={8}>
         <HStack w="full" justify="space-between">
   <HStack spacing={3}>
-        <Image
-        src={getAssetPath("img/CCISLOGO.png")}
-        alt="CCIS Logo"
+          <Image
+          src={getAssetPath("img/CCISLOGO.png")}
+          alt="CCIS Logo"
           w="64px"
           h="64px"
         cursor="pointer"
