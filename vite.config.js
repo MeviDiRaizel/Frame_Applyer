@@ -13,4 +13,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  publicDir: 'public',
 })
