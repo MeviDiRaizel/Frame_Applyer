@@ -42,7 +42,9 @@ function App() {
   const [logoClicks, setLogoClicks] = useState(0);  
   const [isVideoOpen, setIsVideoOpen] = useState(false);
 
-  
+  // Define the desired resolution for the downloaded image
+  const desiredWidth = 1200;
+  const desiredHeight = 1200;
 
   // Modify the useEffect to set default frame on component mount
 useEffect(() => {
@@ -301,40 +303,64 @@ useEffect(() => {
 
   const downloadImage = async () => {
     if (compositeRef.current) {
-      const currentPosition = { ...position };
-  
-      const dataUrl = await toPng(compositeRef.current, {
-        quality: 1.0,
-        pixelRatio: 1,
-        width: compositeRef.current.offsetWidth,
-        height: compositeRef.current.offsetHeight,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
-        },
-        filter: (node) => {
-          if (node instanceof HTMLImageElement && node.alt === "Profile") {
-            node.style.transform = `translate(${currentPosition.x}px, ${currentPosition.y}px) scale(${scale}) rotate(${rotation}deg)`;
-          }
-          return true;
-        }
-      });
-  
-      // Create blob and trigger download
+      // Create a temporary clone of the compositeRef element
+      const compositeClone = compositeRef.current.cloneNode(true);
+
+      // Apply the same styles to the clone as the original
+      compositeClone.style.width = `${desiredWidth}px`;
+      compositeClone.style.height = `${desiredHeight}px`;
+      compositeClone.style.position = 'relative';
+      compositeClone.style.overflow = 'hidden';
+      compositeClone.style.transform = 'none';
+
+      // Adjust styles for profile image within the clone
+      const profileImageClone = compositeClone.querySelector('img[alt="Profile"]');
+      if (profileImageClone) {
+        profileImageClone.style.position = 'absolute';
+        profileImageClone.style.width = '100%';
+        profileImageClone.style.height = '100%';
+        profileImageClone.style.objectFit = 'contain';
+        profileImageClone.style.left = '0';
+        profileImageClone.style.top = '0';
+        profileImageClone.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`;
+        profileImageClone.style.transformOrigin = 'center';
+      }
+
+      // Adjust styles for frame image within the clone
+      const frameImageClone = compositeClone.querySelector('img[alt="Frame"]');
+      if (frameImageClone) {
+        frameImageClone.style.position = 'absolute';
+        frameImageClone.style.top = '0';
+        frameImageClone.style.left = '0';
+        frameImageClone.style.width = '100%';
+        frameImageClone.style.height = '100%';
+        frameImageClone.style.objectFit = 'fill';
+        frameImageClone.style.transform = 'none';
+      }
+
+      // Append the clone to the document body (or any other existing element)
+      document.body.appendChild(compositeClone);
+
       try {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-  
+        const dataUrl = await toPng(compositeClone, {
+          quality: 1.0,
+          pixelRatio: 2,
+          width: desiredWidth,
+          height: desiredHeight,
+          style: {  // Ensure these styles are applied
+            width: `${desiredWidth}px`,
+            height: `${desiredHeight}px`,
+            transform: 'none',
+            position: 'relative',
+            overflow: 'hidden',
+          },
+        });
+
         const link = document.createElement('a');
         link.download = 'profile-frame.png';
-        link.href = blobUrl;
+        link.href = dataUrl;
         link.click();
-  
-        // Cleanup
-        window.URL.revokeObjectURL(blobUrl);
-  
-        // Show success toast
+
         toast({
           title: "Download started!",
           status: "success",
@@ -351,6 +377,9 @@ useEffect(() => {
           isClosable: true,
           position: "top",
         });
+      } finally {
+        // Remove the clone from the DOM after the download is complete
+        document.body.removeChild(compositeClone);
       }
     }
   };
@@ -439,59 +468,55 @@ useEffect(() => {
           ) : (
             <>
               <Box
-                w={{ base: "100%", md: "450px" }}
-                h={{ base: "100vw", md: "450px" }}
-                border="2px solid"
-                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.300'}
-                borderRadius="xl"
-                position="relative"
-                overflow="hidden"
-                ref={compositeRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                bg={colorMode === 'dark' ? 'gray.700' : 'white'}
-                boxShadow="lg"
-                style={{ aspectRatio: '1/1',
-                  touchAction: 'none', // Prevents scrolling while dragging
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none' }}
-              >
-                {profileImage && (
-                  <Image
-                    src={profileImage}
-                    alt="Profile"
-                    position="absolute"
-                    style={{
-                      transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-                      transformOrigin: 'center',
-                      cursor: isDragging.current ? 'grabbing' : 'grab',
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none'
-                    }}
-                    w="100%"
-                    h="100%"
-                    objectFit="contain"
-                    draggable="false"
-                  />
-                )}
-                <Image
-  src={frameImage}
-  alt="Frame"
-  position="absolute"
-  top="0"
-  left="0"
-  w="100%"
-  h="100%"
-  pointerEvents="none"
-  draggable="false"
-/>
-              </Box>
-
+  w={{ base: "100%", md: "450px" }}
+  h={{ base: "100vw", md: "450px" }}
+  border="2px solid"
+  borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.300'}
+  borderRadius="xl"
+  position="relative"
+  overflow="hidden"
+  ref={compositeRef}
+  onMouseDown={handleMouseDown}
+  onMouseMove={handleMouseMove}
+  onMouseUp={handleMouseUp}
+  onMouseLeave={handleMouseUp}
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+  bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+  boxShadow="lg"
+  style={{ aspectRatio: '1/1', touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+>
+  {profileImage && (
+    <Image
+      src={profileImage}
+      alt="Profile"
+      position="absolute"
+      style={{
+        transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
+        transformOrigin: 'center',
+        cursor: isDragging.current ? 'grabbing' : 'grab',
+        userSelect: 'none',
+        WebkitUserSelect: 'none'
+      }}
+      w="100%"
+      h="100%"
+      objectFit="contain"
+      draggable="false"
+    />
+  )}
+  <Image
+    src={frameImage}
+    alt="Frame"
+    position="absolute"
+    top="0"
+    left="0"
+    w="100%"
+    h="100%"
+    pointerEvents="none"
+    draggable="false"
+  />
+</Box>
               {(!DEFAULT_FRAME.enabled || DEFAULT_FRAME.allowRemoval) && (
                 <Button
                   colorScheme="red"
