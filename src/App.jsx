@@ -302,58 +302,58 @@ useEffect(() => {
   const downloadImage = async () => {
     if (compositeRef.current) {
       const currentPosition = { ...position };
-    
-    const dataUrl = await toPng(compositeRef.current, {
-      quality: 1.0,
-      pixelRatio: 1,
-      width: 1500,
-      height: 1500,
-      style: {
-        transform: 'scale(3.33)',
-        transformOrigin: 'top left'
-      },
-      filter: (node) => {
-        if (node instanceof HTMLImageElement && node.alt === "Profile") {
-          node.style.transform = `translate(${currentPosition.x * 3.33}px, ${currentPosition.y * 3.33}px) scale(${scale}) rotate(${rotation}deg)`;
-        }
-        return true;
-      }
-    });
   
-       // Create blob and trigger download
-    try {
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.download = 'profile-frame.png';
-      link.href = blobUrl;
-      link.click();
-      
-      // Cleanup
-      window.URL.revokeObjectURL(blobUrl);
-      
-      // Show success toast
-      toast({
-        title: "Download started!",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "top",
+      const dataUrl = await toPng(compositeRef.current, {
+        quality: 1.0,
+        pixelRatio: 1,
+        width: compositeRef.current.offsetWidth,
+        height: compositeRef.current.offsetHeight,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        },
+        filter: (node) => {
+          if (node instanceof HTMLImageElement && node.alt === "Profile") {
+            node.style.transform = `translate(${currentPosition.x}px, ${currentPosition.y}px) scale(${scale}) rotate(${rotation}deg)`;
+          }
+          return true;
+        }
       });
-    } catch (error) {
-      console.error('Download failed:', error);
-      toast({
-        title: "Download failed",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "top",
-      });
+  
+      // Create blob and trigger download
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+  
+        const link = document.createElement('a');
+        link.download = 'profile-frame.png';
+        link.href = blobUrl;
+        link.click();
+  
+        // Cleanup
+        window.URL.revokeObjectURL(blobUrl);
+  
+        // Show success toast
+        toast({
+          title: "Download started!",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+      } catch (error) {
+        console.error('Download failed:', error);
+        toast({
+          title: "Download failed",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+      }
     }
-  }
-};
+  };
 
   return (
     <Box minH="100vh" bg={colorMode === 'dark' ? 'gray.800' : 'gray.50'} transition="background 0.2s">
