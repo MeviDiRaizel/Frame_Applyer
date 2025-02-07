@@ -35,7 +35,7 @@ This project was created by ME as a personal initiative to support upcoming CCIS
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/Frame_Applyer.git
+git clone https://github.com/MeviDiRaizel/Frame_Applyer.git
 
 # Install dependencies
 npm install
