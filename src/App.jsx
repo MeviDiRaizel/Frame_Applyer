@@ -20,7 +20,32 @@ const getAssetPath = (path) => {
   return `/${path}`;
 };
 
+function useCardPulseStyle() {
+  useEffect(() => {
+    if (!document.head.querySelector('style[data-github-card-pulse]')) {
+      const style = document.createElement('style');
+      style.setAttribute('data-github-card-pulse', 'true');
+      style.innerHTML = `@keyframes pulse-card {
+        0% {
+          box-shadow: 0 0 0 0 #3182ce88;
+          transform: scale(1);
+        }
+        50% {
+          box-shadow: 0 0 0 24px #3182ce22, 0 0 16px 8px #3182ce88;
+          transform: scale(1.06);
+        }
+        100% {
+          box-shadow: 0 0 0 0 #3182ce88;
+          transform: scale(1);
+        }
+      }`;
+      document.head.appendChild(style);
+    }
+  }, []);
+}
+
 function App() {
+  useCardPulseStyle();
   
   const DEFAULT_FRAME = {
     enabled: true,
@@ -363,8 +388,21 @@ useEffect(() => {
 
         toast({
           title: "Download started!",
-          status: "success",
-          duration: 3000,
+          description: (
+            <span>
+              If you enjoyed this tool, consider checking out my
+              <a
+                href="https://github.com/MeviDiRaizel"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
+              >
+                GitHub profile
+              </a>!
+            </span>
+          ),
+          status: "info",
+          duration: 6000,
           isClosable: true,
           position: "top",
         });
@@ -641,14 +679,43 @@ useEffect(() => {
               )}
             </>
           )}
-        <Text 
-          fontSize="sm" 
-          color={colorMode === 'dark' ? 'gray.400' : 'gray.600'}
-          textAlign="center"
-          pb={4}
-        >
-          Made with ❤️ by Jed
-        </Text>
+        <VStack spacing={1} pt={2}>
+          <HStack
+            spacing={3}
+            justify="center"
+            bg={colorMode === 'dark' ? 'gray.700' : 'gray.100'}
+            borderRadius="xl"
+            p={3}
+            boxShadow="md"
+            transition="background 0.2s"
+            _hover={{ bg: colorMode === 'dark' ? 'gray.600' : 'gray.200', boxShadow: '0 0 0 4px #3182ce55' }}
+            style={{ cursor: 'pointer', animation: 'pulse-card 2.2s infinite', boxShadow: '0 0 0 0 #3182ce33' }}
+            onClick={() => window.open('https://github.com/MeviDiRaizel', '_blank', 'noopener noreferrer')}
+          >
+            <Image
+              src="https://github.com/MeviDiRaizel.png"
+              alt="Jed's GitHub Avatar"
+              boxSize="40px"
+              borderRadius="full"
+              border={colorMode === 'dark' ? '2px solid #3182ce' : '2px solid #2b6cb0'}
+              boxShadow="sm"
+            />
+            <VStack align="start" spacing={0}>
+              <Text fontWeight="bold" fontSize="md" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
+                Jed (MeviDiRaizel)
+              </Text>
+              <Link
+                href="https://github.com/MeviDiRaizel"
+                isExternal
+                fontSize="sm"
+                color={colorMode === 'dark' ? 'blue.200' : 'blue.600'}
+                _hover={{ textDecoration: 'underline', color: colorMode === 'dark' ? 'blue.300' : 'blue.800' }}
+              >
+                github.com/MeviDiRaizel
+              </Link>
+            </VStack>
+          </HStack>
+        </VStack>
       </VStack>
     </Container>
     <Modal 
