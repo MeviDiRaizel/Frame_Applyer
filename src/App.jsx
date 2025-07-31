@@ -330,73 +330,137 @@ useEffect(() => {
   };
 
   const downloadImage = async () => {
-    if (compositeRef.current) {
-      // Create a temporary clone of the compositeRef element
-      const compositeClone = compositeRef.current.cloneNode(true);
+    if (!compositeRef.current) {
+      toast({
+        title: "No image to download",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
 
-      // Apply the same styles to the clone as the original
-      compositeClone.style.width = `${desiredWidth}px`;
-      compositeClone.style.height = `${desiredHeight}px`;
-      compositeClone.style.position = 'relative';
-      compositeClone.style.overflow = 'hidden';
-      compositeClone.style.transform = 'none';
+    // Create a temporary clone of the compositeRef element
+    const compositeClone = compositeRef.current.cloneNode(true);
 
-      // Adjust styles for profile image within the clone
-      const profileImageClone = compositeClone.querySelector('img[alt="Profile"]');
-      if (profileImageClone) {
-        profileImageClone.style.position = 'absolute';
-        profileImageClone.style.width = '100%';
-        profileImageClone.style.height = '100%';
-        profileImageClone.style.objectFit = 'contain';
-        profileImageClone.style.left = '0';
-        profileImageClone.style.top = '0';
-        profileImageClone.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`;
-        profileImageClone.style.transformOrigin = 'center';
-      }
+    // Apply the same styles to the clone as the original
+    compositeClone.style.width = `${desiredWidth}px`;
+    compositeClone.style.height = `${desiredHeight}px`;
+    compositeClone.style.position = 'relative';
+    compositeClone.style.overflow = 'hidden';
+    compositeClone.style.transform = 'none';
 
-      // Adjust styles for frame image within the clone
-      const frameImageClone = compositeClone.querySelector('img[alt="Frame"]');
-      if (frameImageClone) {
-        frameImageClone.style.position = 'absolute';
-        frameImageClone.style.top = '0';
-        frameImageClone.style.left = '0';
-        frameImageClone.style.width = '100%';
-        frameImageClone.style.height = '100%';
-        frameImageClone.style.objectFit = 'fill';
-        frameImageClone.style.transform = 'none';
-      }
+    // Adjust styles for profile image within the clone
+    const profileImageClone = compositeClone.querySelector('img[alt="Profile"]');
+    if (profileImageClone) {
+      profileImageClone.style.position = 'absolute';
+      profileImageClone.style.width = '100%';
+      profileImageClone.style.height = '100%';
+      profileImageClone.style.objectFit = 'contain';
+      profileImageClone.style.left = '0';
+      profileImageClone.style.top = '0';
+      profileImageClone.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`;
+      profileImageClone.style.transformOrigin = 'center';
+    }
 
-      // Append the clone to the document body (or any other existing element)
-      document.body.appendChild(compositeClone);
+    // Adjust styles for frame image within the clone
+    const frameImageClone = compositeClone.querySelector('img[alt="Frame"]');
+    if (frameImageClone) {
+      frameImageClone.style.position = 'absolute';
+      frameImageClone.style.top = '0';
+      frameImageClone.style.left = '0';
+      frameImageClone.style.width = '100%';
+      frameImageClone.style.height = '100%';
+      frameImageClone.style.objectFit = 'fill';
+      frameImageClone.style.transform = 'none';
+    }
 
-      try {
-        // Wait a moment for the clone to be properly rendered
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const dataUrl = await toPng(compositeClone, {
-          quality: 1.0,
-          pixelRatio: 2,
-          width: desiredWidth,
-          height: desiredHeight,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          allowTaint: true,
-          style: {
-            width: `${desiredWidth}px`,
-            height: `${desiredHeight}px`,
-            transform: 'none',
-            position: 'relative',
-            overflow: 'hidden',
-          },
-        });
+    // Append the clone to the document body
+    document.body.appendChild(compositeClone);
 
-        // Safari/iOS fallback: show in modal for iOS/Safari, otherwise try download
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        if (isSafari || isIOS) {
-          setFallbackImageUrl(dataUrl);
-        } else {
-          let downloadWorked = false;
+    try {
+      // Wait a moment for the clone to be properly rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Generate the image
+      const dataUrl = await toPng(compositeClone, {
+        quality: 1.0,
+        pixelRatio: 2,
+        width: desiredWidth,
+        height: desiredHeight,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        style: {
+          width: `${desiredWidth}px`,
+          height: `${desiredHeight}px`,
+          transform: 'none',
+          position: 'relative',
+          overflow: 'hidden',
+        },
+      });
+
+      // Check if we're on iOS Safari (which blocks downloads)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isMobileSafari = isIOS && isSafari;
+
+      if (isMobileSafari) {
+        // iOS Safari blocks downloads, so show fallback immediately
+        setFallbackImageUrl(dataUrl);
+      } else {
+        // For other browsers, try blob-based download
+        try {
+          // Convert to blob
+          const response = await fetch(dataUrl);
+          if (!response.ok) {
+            throw new Error('Failed to create blob');
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+
+          // Try to download
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'profile-frame.png';
+          link.style.display = 'none';
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up the object URL
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 100);
+
+          // Show success message
+          toast({
+            title: "Download started!",
+            description: (
+              <span>
+                If you enjoyed this tool, consider checking out my
+                <a
+                  href="https://github.com/MeviDiRaizel"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
+                >
+                  GitHub profile
+                </a>!
+              </span>
+            ),
+            status: "success",
+            duration: 6000,
+            isClosable: true,
+            position: "top",
+          });
+
+        } catch (blobError) {
+          console.error('Blob download failed:', blobError);
+          
+          // Fallback to data URL download
           try {
             const link = document.createElement('a');
             link.download = 'profile-frame.png';
@@ -404,13 +468,7 @@ useEffect(() => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            downloadWorked = true;
-          } catch (e) {
-            downloadWorked = false;
-          }
-          if (!downloadWorked) {
-            setFallbackImageUrl(dataUrl);
-          } else {
+            
             toast({
               title: "Download started!",
               description: (
@@ -426,26 +484,33 @@ useEffect(() => {
                   </a>!
                 </span>
               ),
-              status: "info",
+              status: "success",
               duration: 6000,
               isClosable: true,
               position: "top",
             });
+            
+          } catch (fallbackError) {
+            console.error('Fallback download failed:', fallbackError);
+            // Show fallback modal as last resort
+            setFallbackImageUrl(dataUrl);
           }
         }
-      } catch (error) {
-        console.error('Download failed:', error);
-        toast({
-          title: "Download failed",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-          position: "top",
-        });
-      } finally {
-        // Remove the clone from the DOM after the download is complete
-        document.body.removeChild(compositeClone);
       }
+
+    } catch (error) {
+      console.error('Image generation failed:', error);
+      toast({
+        title: "Failed to generate image",
+        description: "Please try again",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top",
+      });
+    } finally {
+      // Remove the clone from the DOM
+      document.body.removeChild(compositeClone);
     }
   };
 
@@ -700,6 +765,76 @@ useEffect(() => {
                       transition="all 0.2s"
                     >
                       Download
+                    </Button>
+                    <Button
+                      colorScheme="orange"
+                      onClick={() => {
+                        // Force fallback modal with current composite image
+                        if (compositeRef.current) {
+                          const compositeClone = compositeRef.current.cloneNode(true);
+                          compositeClone.style.width = `${desiredWidth}px`;
+                          compositeClone.style.height = `${desiredHeight}px`;
+                          compositeClone.style.position = 'relative';
+                          compositeClone.style.overflow = 'hidden';
+                          compositeClone.style.transform = 'none';
+
+                          const profileImageClone = compositeClone.querySelector('img[alt="Profile"]');
+                          if (profileImageClone) {
+                            profileImageClone.style.position = 'absolute';
+                            profileImageClone.style.width = '100%';
+                            profileImageClone.style.height = '100%';
+                            profileImageClone.style.objectFit = 'contain';
+                            profileImageClone.style.left = '0';
+                            profileImageClone.style.top = '0';
+                            profileImageClone.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`;
+                            profileImageClone.style.transformOrigin = 'center';
+                          }
+
+                          const frameImageClone = compositeClone.querySelector('img[alt="Frame"]');
+                          if (frameImageClone) {
+                            frameImageClone.style.position = 'absolute';
+                            frameImageClone.style.top = '0';
+                            frameImageClone.style.left = '0';
+                            frameImageClone.style.width = '100%';
+                            frameImageClone.style.height = '100%';
+                            frameImageClone.style.objectFit = 'fill';
+                            frameImageClone.style.transform = 'none';
+                          }
+
+                          document.body.appendChild(compositeClone);
+
+                          setTimeout(async () => {
+                            try {
+                              const dataUrl = await toPng(compositeClone, {
+                                quality: 1.0,
+                                pixelRatio: 2,
+                                width: desiredWidth,
+                                height: desiredHeight,
+                                backgroundColor: '#ffffff',
+                                useCORS: true,
+                                allowTaint: true,
+                                style: {
+                                  width: `${desiredWidth}px`,
+                                  height: `${desiredHeight}px`,
+                                  transform: 'none',
+                                  position: 'relative',
+                                  overflow: 'hidden',
+                                },
+                              });
+                              setFallbackImageUrl(dataUrl);
+                            } catch (error) {
+                              console.error('Failed to generate test image:', error);
+                            } finally {
+                              document.body.removeChild(compositeClone);
+                            }
+                          }, 100);
+                        }
+                      }}
+                      _hover={{ transform: 'translateY(-2px)' }}
+                      transition="all 0.2s"
+                      size="sm"
+                    >
+                      Test Fallback
                     </Button>
                   </HStack>
                 </VStack>
