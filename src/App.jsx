@@ -381,31 +381,55 @@ useEffect(() => {
           },
         });
 
-        const link = document.createElement('a');
-        link.download = 'profile-frame.png';
-        link.href = dataUrl;
-        link.click();
-
-        toast({
-          title: "Download started!",
-          description: (
-            <span>
-              If you enjoyed this tool, consider checking out my
-              <a
-                href="https://github.com/MeviDiRaizel"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
-              >
-                GitHub profile
-              </a>!
-            </span>
-          ),
-          status: "info",
-          duration: 6000,
-          isClosable: true,
-          position: "top",
-        });
+        // Safari/iOS fallback: open in new tab if download fails or is on iOS/Safari
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        let downloadWorked = false;
+        if (!(isSafari || isIOS)) {
+          try {
+            const link = document.createElement('a');
+            link.download = 'profile-frame.png';
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            downloadWorked = true;
+          } catch (e) {
+            downloadWorked = false;
+          }
+        }
+        if (!downloadWorked) {
+          window.open(dataUrl, '_blank');
+          toast({
+            title: "Manual Save Required",
+            description: "Tap and hold the image in the new tab, then choose 'Save Image' to save to your device.",
+            status: "info",
+            duration: 8000,
+            isClosable: true,
+            position: "top",
+          });
+        } else {
+          toast({
+            title: "Download started!",
+            description: (
+              <span>
+                If you enjoyed this tool, consider checking out my
+                <a
+                  href="https://github.com/MeviDiRaizel"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
+                >
+                  GitHub profile
+                </a>!
+              </span>
+            ),
+            status: "info",
+            duration: 6000,
+            isClosable: true,
+            position: "top",
+          });
+        }
       } catch (error) {
         console.error('Download failed:', error);
         toast({
@@ -693,12 +717,13 @@ useEffect(() => {
             onClick={() => window.open('https://github.com/MeviDiRaizel', '_blank', 'noopener noreferrer')}
           >
             <Image
-              src="https://github.com/MeviDiRaizel.png"
+              src={getAssetPath("img/mevidiraizel.jpg")}
               alt="Jed's GitHub Avatar"
               boxSize="40px"
               borderRadius="full"
               border={colorMode === 'dark' ? '2px solid #3182ce' : '2px solid #2b6cb0'}
               boxShadow="sm"
+              crossOrigin="anonymous"
             />
             <VStack align="start" spacing={0}>
               <Text fontWeight="bold" fontSize="md" color={colorMode === 'dark' ? 'white' : 'gray.800'}>
