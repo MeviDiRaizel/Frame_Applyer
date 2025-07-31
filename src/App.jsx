@@ -44,9 +44,10 @@ function useCardPulseStyle() {
   }, []);
 }
 
+
 function App() {
   useCardPulseStyle();
-  
+
   const DEFAULT_FRAME = {
     enabled: true,
     url: getAssetPath("frames/DPBlastSY2025-2026.png"),
@@ -64,8 +65,10 @@ function App() {
   const lastPosition = useRef({ x: 0, y: 0 });
   const toast = useToast();
   const { colorMode, toggleColorMode } = useColorMode();
-  const [logoClicks, setLogoClicks] = useState(0);  
+  const [logoClicks, setLogoClicks] = useState(0);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  // Fallback modal for iOS/Safari manual save
+  const [fallbackImageUrl, setFallbackImageUrl] = useState(null);
 
   // Define the desired resolution for the downloaded image
   const desiredWidth = 1200;
@@ -381,11 +384,13 @@ useEffect(() => {
           },
         });
 
-        // Safari/iOS fallback: open in new tab if download fails or is on iOS/Safari
+        // Safari/iOS fallback: show in modal for iOS/Safari, otherwise try download
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        let downloadWorked = false;
-        if (!(isSafari || isIOS)) {
+        if (isSafari || isIOS) {
+          setFallbackImageUrl(dataUrl);
+        } else {
+          let downloadWorked = false;
           try {
             const link = document.createElement('a');
             link.download = 'profile-frame.png';
@@ -397,38 +402,30 @@ useEffect(() => {
           } catch (e) {
             downloadWorked = false;
           }
-        }
-        if (!downloadWorked) {
-          window.open(dataUrl, '_blank');
-          toast({
-            title: "Manual Save Required",
-            description: "Tap and hold the image in the new tab, then choose 'Save Image' to save to your device.",
-            status: "info",
-            duration: 8000,
-            isClosable: true,
-            position: "top",
-          });
-        } else {
-          toast({
-            title: "Download started!",
-            description: (
-              <span>
-                If you enjoyed this tool, consider checking out my
-                <a
-                  href="https://github.com/MeviDiRaizel"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
-                >
-                  GitHub profile
-                </a>!
-              </span>
-            ),
-            status: "info",
-            duration: 6000,
-            isClosable: true,
-            position: "top",
-          });
+          if (!downloadWorked) {
+            setFallbackImageUrl(dataUrl);
+          } else {
+            toast({
+              title: "Download started!",
+              description: (
+                <span>
+                  If you enjoyed this tool, consider checking out my
+                  <a
+                    href="https://github.com/MeviDiRaizel"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#3182ce', textDecoration: 'underline', marginLeft: 4 }}
+                  >
+                    GitHub profile
+                  </a>!
+                </span>
+              ),
+              status: "info",
+              duration: 6000,
+              isClosable: true,
+              position: "top",
+            });
+          }
         }
       } catch (error) {
         console.error('Download failed:', error);
@@ -829,7 +826,30 @@ useEffect(() => {
     </VStack>
   </ModalContent>
 </Modal>
-    </Box>
+
+    {/* Fallback Modal for iOS/Safari manual save */}
+    <Modal isOpen={!!fallbackImageUrl} onClose={() => setFallbackImageUrl(null)} isCentered size="xl">
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Manual Save Required</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack spacing={4}>
+            <Text fontWeight="bold">Tap and hold the image below, then choose "Save Image" to save to your device.</Text>
+            {fallbackImageUrl && (
+              <Image src={fallbackImageUrl} alt="Generated Frame" w="100%" borderRadius="md" boxShadow="md" />
+            )}
+            <Text fontSize="sm" color="gray.500">This is required on iOS/Safari and some browsers that block automatic downloads.</Text>
+          </VStack>
+        </ModalBody>
+        <ModalFooter>
+          <Button colorScheme="blue" w="full" onClick={() => setFallbackImageUrl(null)}>
+            Close
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  </Box>
   );
 }
 
