@@ -370,12 +370,18 @@ useEffect(() => {
       document.body.appendChild(compositeClone);
 
       try {
+        // Wait a moment for the clone to be properly rendered
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const dataUrl = await toPng(compositeClone, {
           quality: 1.0,
           pixelRatio: 2,
           width: desiredWidth,
           height: desiredHeight,
-          style: {  // Ensure these styles are applied
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          allowTaint: true,
+          style: {
             width: `${desiredWidth}px`,
             height: `${desiredHeight}px`,
             transform: 'none',
