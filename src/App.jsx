@@ -24,7 +24,7 @@ function App() {
   
   const DEFAULT_FRAME = {
     enabled: true,
-    url: getAssetPath("frames/MiniOL.png"),
+    url: getAssetPath("frames/DPBlastSY2025-2026.png"),
     allowRemoval: false,
   };
 
