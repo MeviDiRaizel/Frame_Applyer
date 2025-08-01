@@ -88,6 +88,18 @@ useEffect(() => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   };
 
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  };
+
+  const isSafari = () => {
+    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  };
+
+  const isMobileSafari = () => {
+    return isIOS() && isSafari();
+  };
+
   const triggerModalConfetti = () => {
     // Create multiple confetti bursts from different positions around the modal
     const positions = [
@@ -398,16 +410,32 @@ useEffect(() => {
           position: 'relative',
           overflow: 'hidden',
         },
+        filter: (node) => {
+          // Filter out any problematic nodes
+          return node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE';
+        },
       });
 
-      // Check if we're on iOS Safari (which blocks downloads)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const isMobileSafari = isIOS && isSafari;
+      // Verify the data URL is valid
+      if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
+        throw new Error('Generated image is invalid or empty');
+      }
 
-      if (isMobileSafari) {
+      // Check if we're on iOS Safari (which blocks downloads)
+      if (isMobileSafari() || isIOS()) {
         // iOS Safari blocks downloads, so show fallback immediately
-        setFallbackImageUrl(dataUrl);
+        // Add a small delay to ensure the image is properly processed
+        setTimeout(() => {
+          setFallbackImageUrl(dataUrl);
+          toast({
+            title: "Manual Save Required",
+            description: "Tap and hold the image in the modal to save it to your device.",
+            status: "info",
+            duration: 4000,
+            isClosable: true,
+            position: "top",
+          });
+        }, 200);
       } else {
         // For other browsers, try blob-based download
         try {
@@ -493,21 +521,44 @@ useEffect(() => {
           } catch (fallbackError) {
             console.error('Fallback download failed:', fallbackError);
             // Show fallback modal as last resort
-            setFallbackImageUrl(dataUrl);
+            setTimeout(() => {
+              setFallbackImageUrl(dataUrl);
+              toast({
+                title: "Manual Save Required",
+                description: "Tap and hold the image in the modal to save it to your device.",
+                status: "info",
+                duration: 4000,
+                isClosable: true,
+                position: "top",
+              });
+            }, 200);
           }
         }
       }
 
     } catch (error) {
       console.error('Image generation failed:', error);
-      toast({
-        title: "Failed to generate image",
-        description: "Please try again",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "top",
-      });
+      
+      // If we're on iOS, try to show a more helpful error
+      if (isIOS()) {
+        toast({
+          title: "iOS Download Issue",
+          description: "iOS requires manual save. The image should appear in a modal for you to save manually.",
+          status: "warning",
+          duration: 5000,
+          isClosable: true,
+          position: "top",
+        });
+      } else {
+        toast({
+          title: "Failed to generate image",
+          description: "Please try again",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+          position: "top",
+        });
+      }
     } finally {
       // Remove the clone from the DOM
       document.body.removeChild(compositeClone);
@@ -976,11 +1027,38 @@ useEffect(() => {
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={4}>
-            <Text fontWeight="bold">Tap and hold the image below, then choose "Save Image" to save to your device.</Text>
+            <Text fontWeight="bold" textAlign="center">
+              Tap and hold the image below, then choose "Save Image" to save to your device.
+            </Text>
             {fallbackImageUrl && (
-              <Image src={fallbackImageUrl} alt="Generated Frame" w="100%" borderRadius="md" boxShadow="md" />
+              <Box 
+                w="100%" 
+                borderRadius="md" 
+                boxShadow="lg" 
+                overflow="hidden"
+                border="2px solid"
+                borderColor={colorMode === 'dark' ? 'gray.600' : 'gray.300'}
+              >
+                <Image 
+                  src={fallbackImageUrl} 
+                  alt="Generated Frame" 
+                  w="100%" 
+                  h="auto"
+                  draggable="false"
+                  style={{ 
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    pointerEvents: 'auto'
+                  }}
+                />
+              </Box>
             )}
-            <Text fontSize="sm" color="gray.500">This is required on iOS/Safari and some browsers that block automatic downloads.</Text>
+            <Text fontSize="sm" color="gray.500" textAlign="center">
+              This is required on iOS/Safari and some browsers that block automatic downloads.
+            </Text>
+            <Text fontSize="xs" color="gray.400" textAlign="center">
+              If the image doesn't appear, try refreshing the page and generating again.
+            </Text>
           </VStack>
         </ModalBody>
         <ModalFooter>
