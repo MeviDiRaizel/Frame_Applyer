@@ -341,17 +341,83 @@ useEffect(() => {
     isDragging.current = false;
   };
 
-  const downloadImage = async () => {
-    if (!compositeRef.current) {
-      toast({
-        title: "No image to download",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
+  // Helper function to generate image using Canvas (for iOS)
+  const generateImageWithCanvas = async () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size
+    canvas.width = desiredWidth;
+    canvas.height = desiredHeight;
+    
+    // Fill with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, desiredWidth, desiredHeight);
+    
+    // Load images
+    const profileImg = new Image();
+    const frameImg = new Image();
+    
+    // Create promises for image loading
+    const loadProfileImage = new Promise((resolve, reject) => {
+      profileImg.onload = resolve;
+      profileImg.onerror = reject;
+      profileImg.src = profileImage;
+    });
+    
+    const loadFrameImage = new Promise((resolve, reject) => {
+      frameImg.onload = resolve;
+      frameImg.onerror = reject;
+      frameImg.src = frameImage;
+    });
+    
+    // Wait for both images to load
+    await Promise.all([loadProfileImage, loadFrameImage]);
+    
+    // Calculate scaling factors to maintain aspect ratio
+    const profileAspectRatio = profileImg.width / profileImg.height;
+    
+    // Calculate profile image dimensions with scale
+    let profileWidth = desiredWidth * scale;
+    let profileHeight = profileWidth / profileAspectRatio;
+    
+    if (profileHeight > desiredHeight * scale) {
+      profileHeight = desiredHeight * scale;
+      profileWidth = profileHeight * profileAspectRatio;
     }
+    
+    // Calculate center position
+    const centerX = desiredWidth / 2;
+    const centerY = desiredHeight / 2;
+    
+    // Apply position offset (convert from viewport coordinates to canvas coordinates)
+    const positionScaleX = desiredWidth / compositeRef.current.offsetWidth;
+    const positionScaleY = desiredHeight / compositeRef.current.offsetHeight;
+    const adjustedPositionX = position.x * positionScaleX;
+    const adjustedPositionY = position.y * positionScaleY;
+    
+    // Draw profile image with transformations
+    ctx.save();
+    ctx.translate(centerX + adjustedPositionX, centerY + adjustedPositionY);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.drawImage(
+      profileImg,
+      -profileWidth / 2,
+      -profileHeight / 2,
+      profileWidth,
+      profileHeight
+    );
+    ctx.restore();
+    
+    // Draw frame image on top
+    ctx.drawImage(frameImg, 0, 0, desiredWidth, desiredHeight);
+    
+    // Convert canvas to data URL
+    return canvas.toDataURL('image/png', 1.0);
+  };
 
+  // Helper function to generate image using html-to-image (for non-iOS)
+  const generateImageWithHtmlToImage = async () => {
     // Create a temporary clone of the compositeRef element
     const compositeClone = compositeRef.current.cloneNode(true);
 
@@ -416,6 +482,36 @@ useEffect(() => {
         },
       });
 
+      return dataUrl;
+    } finally {
+      // Remove the clone from the DOM
+      document.body.removeChild(compositeClone);
+    }
+  };
+
+  const downloadImage = async () => {
+    if (!compositeRef.current || !profileImage || !frameImage) {
+      toast({
+        title: "No image to download",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      let dataUrl;
+
+      // Use different methods based on platform
+      if (isIOS() || isMobileSafari()) {
+        // For iOS, use Canvas method (more reliable)
+        dataUrl = await generateImageWithCanvas();
+      } else {
+        // For other platforms, use html-to-image (better quality and positioning)
+        dataUrl = await generateImageWithHtmlToImage();
+      }
+
       // Verify the data URL is valid
       if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 100) {
         throw new Error('Generated image is invalid or empty');
@@ -424,18 +520,15 @@ useEffect(() => {
       // Check if we're on iOS Safari (which blocks downloads)
       if (isMobileSafari() || isIOS()) {
         // iOS Safari blocks downloads, so show fallback immediately
-        // Add a small delay to ensure the image is properly processed
-        setTimeout(() => {
-          setFallbackImageUrl(dataUrl);
-          toast({
-            title: "Manual Save Required",
-            description: "Tap and hold the image in the modal to save it to your device.",
-            status: "info",
-            duration: 4000,
-            isClosable: true,
-            position: "top",
-          });
-        }, 200);
+        setFallbackImageUrl(dataUrl);
+        toast({
+          title: "Manual Save Required",
+          description: "Tap and hold the image in the modal to save it to your device.",
+          status: "info",
+          duration: 4000,
+          isClosable: true,
+          position: "top",
+        });
       } else {
         // For other browsers, try blob-based download
         try {
@@ -521,17 +614,15 @@ useEffect(() => {
           } catch (fallbackError) {
             console.error('Fallback download failed:', fallbackError);
             // Show fallback modal as last resort
-            setTimeout(() => {
-              setFallbackImageUrl(dataUrl);
-              toast({
-                title: "Manual Save Required",
-                description: "Tap and hold the image in the modal to save it to your device.",
-                status: "info",
-                duration: 4000,
-                isClosable: true,
-                position: "top",
-              });
-            }, 200);
+            setFallbackImageUrl(dataUrl);
+            toast({
+              title: "Manual Save Required",
+              description: "Tap and hold the image in the modal to save it to your device.",
+              status: "info",
+              duration: 4000,
+              isClosable: true,
+              position: "top",
+            });
           }
         }
       }
@@ -559,9 +650,6 @@ useEffect(() => {
           position: "top",
         });
       }
-    } finally {
-      // Remove the clone from the DOM
-      document.body.removeChild(compositeClone);
     }
   };
 
@@ -819,66 +907,32 @@ useEffect(() => {
                     </Button>
                     <Button
                       colorScheme="orange"
-                      onClick={() => {
+                      onClick={async () => {
                         // Force fallback modal with current composite image
-                        if (compositeRef.current) {
-                          const compositeClone = compositeRef.current.cloneNode(true);
-                          compositeClone.style.width = `${desiredWidth}px`;
-                          compositeClone.style.height = `${desiredHeight}px`;
-                          compositeClone.style.position = 'relative';
-                          compositeClone.style.overflow = 'hidden';
-                          compositeClone.style.transform = 'none';
-
-                          const profileImageClone = compositeClone.querySelector('img[alt="Profile"]');
-                          if (profileImageClone) {
-                            profileImageClone.style.position = 'absolute';
-                            profileImageClone.style.width = '100%';
-                            profileImageClone.style.height = '100%';
-                            profileImageClone.style.objectFit = 'contain';
-                            profileImageClone.style.left = '0';
-                            profileImageClone.style.top = '0';
-                            profileImageClone.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`;
-                            profileImageClone.style.transformOrigin = 'center';
-                          }
-
-                          const frameImageClone = compositeClone.querySelector('img[alt="Frame"]');
-                          if (frameImageClone) {
-                            frameImageClone.style.position = 'absolute';
-                            frameImageClone.style.top = '0';
-                            frameImageClone.style.left = '0';
-                            frameImageClone.style.width = '100%';
-                            frameImageClone.style.height = '100%';
-                            frameImageClone.style.objectFit = 'fill';
-                            frameImageClone.style.transform = 'none';
-                          }
-
-                          document.body.appendChild(compositeClone);
-
-                          setTimeout(async () => {
-                            try {
-                              const dataUrl = await toPng(compositeClone, {
-                                quality: 1.0,
-                                pixelRatio: 2,
-                                width: desiredWidth,
-                                height: desiredHeight,
-                                backgroundColor: '#ffffff',
-                                useCORS: true,
-                                allowTaint: true,
-                                style: {
-                                  width: `${desiredWidth}px`,
-                                  height: `${desiredHeight}px`,
-                                  transform: 'none',
-                                  position: 'relative',
-                                  overflow: 'hidden',
-                                },
-                              });
-                              setFallbackImageUrl(dataUrl);
-                            } catch (error) {
-                              console.error('Failed to generate test image:', error);
-                            } finally {
-                              document.body.removeChild(compositeClone);
+                        if (compositeRef.current && profileImage && frameImage) {
+                          try {
+                            let dataUrl;
+                            
+                            // Use different methods based on platform
+                            if (isIOS() || isMobileSafari()) {
+                              // For iOS, use Canvas method
+                              dataUrl = await generateImageWithCanvas();
+                            } else {
+                              // For other platforms, use html-to-image
+                              dataUrl = await generateImageWithHtmlToImage();
                             }
-                          }, 100);
+                            
+                            setFallbackImageUrl(dataUrl);
+                          } catch (error) {
+                            console.error('Failed to generate test image:', error);
+                            toast({
+                              title: "Test Failed",
+                              description: "Could not generate test image",
+                              status: "error",
+                              duration: 3000,
+                              isClosable: true,
+                            });
+                          }
                         }
                       }}
                       _hover={{ transform: 'translateY(-2px)' }}
